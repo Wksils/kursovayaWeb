@@ -1,0 +1,58 @@
+﻿@page "/"
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<div class="login-content">
+    <div class="login-box">
+        <h2>Система производства СЗР<br /><small>Модуль аппаратчика</small></h2>
+
+        <label>Логин:</label>
+        <input @bind="login" @onkeyup="HandleKeyUp" />
+
+        <label>Пароль:</label>
+        <input type="password" @bind="password" @onkeyup="HandleKeyUp" />
+
+        <button @onclick="DoLogin" disabled="@isLoading">
+            @(isLoading ? "Вход..." : "Войти")
+        </button>
+
+        <div class="error-message">@errorMessage</div>
+    </div>
+</div>
+
+@code {
+    private string login = "";
+    private string password = "";
+    private string errorMessage = "";
+    private bool isLoading = false;
+
+    private async void HandleKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await DoLogin();
+    }
+
+    private async Task DoLogin()
+    {
+        errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+        {
+            errorMessage = "Заполните логин и пароль";
+            return;
+        }
+
+        isLoading = true;
+        var (success, error) = await AuthService.LoginAsync(login, password);
+        isLoading = false;
+
+        if (success)
+        {
+            Navigation.NavigateTo("active-batches");
+        }
+        else
+        {
+            errorMessage = error;
+        }
+    }
+}

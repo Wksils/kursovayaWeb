@@ -1,0 +1,192 @@
+﻿@page "/batch-program/{BatchId:int}"
+@inject DataService DataService
+@inject AuthState AuthState
+@inject NavigationManager Navigation
+
+<div class="batch-header-bar">
+    <div><b>Партия</b>@currentBatch?.BatchNumber</div>
+    <div><b>Продукт</b>@productName</div>
+    <div><b>Статус</b>@currentBatch?.Status</div>
+    <div><b>Текущий шаг</b>@(currentStep?.Name ?? "—")</div>
+    <div><b>Начало</b>@(currentBatch?.StartedAt?.ToString("HH:mm dd.MM") ?? "—")</div>
+</div>
+
+@if (isLoading)
+{
+    <p>Загрузка...</p>
+}
+else
+{
+    <div class="program-layout">
+
+        <div class="steps-list">
+            @foreach (var step in steps)
+            {
+                var execution = executions.FirstOrDefault(e => e.StepId == step.StepId);
+                <div class="step-item @(selectedStep?.StepId == step.StepId ? "active-step" : "")"
+                     @onclick="() => SelectStep(step)">
+                    <span class="step-icon @GetStepIconClass(execution)">@GetStepIcon(execution)</span>
+                    <span>@step.StepNumber. @step.Name</span>
+                </div>
+            }
+        </div>
+
+        <div class="work-area">
+            @if (selectedStep == null)
+            {
+                <p>Выберите шаг слева</p>
+            }
+            else
+            {
+                var execution = executions.FirstOrDefault(e => e.StepId == selectedStep.StepId);
+
+                <h3>Шаг: @selectedStep.Name</h3>
+                <p><b>критический:</b> @selectedStep.IsCritical</p>
+                <p><b>Статус:</b> @(execution?.Status ?? "не начат")</p>
+
+                @if (!string.IsNullOrWhiteSpace(selectedStep.Description))
+                {
+                    <div class="instruction-box">@selectedStep.Description</div>
+                }
+
+                @if (execution == null || execution.Status == "pending")
+                {
+                    <div class="action-buttons">
+                        <button class="btn-primary" @onclick="StartStep">Начать шаг</button>
+                    </div>
+                }
+                else if (execution.Status == "in_progress")
+                {
+                    <div class="param-row">
+                        <label>Фактические параметры:</label>
+                        <input @bind="actualParamsInput" />
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn-primary" @onclick="CompleteStep" disabled="@string.IsNullOrWhiteSpace(actualParamsInput)">
+                            Завершить шаг
+                        </button>
+                    </div>
+                }
+                else if (execution.Status == "completed")
+                {
+                    <p style="color:#4caf50">✔ Шаг завершён</p>
+                    <p><b>Фактические параметры:</b> @execution.ActualParams</p>
+                }
+            }
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public int BatchId { get; set; }
+
+    private ProductionBatch? currentBatch;
+    private string productName = "—";
+    private List<TechStep> steps = new();
+    private List<BatchStepExecution> executions = new();
+    private TechStep? selectedStep;
+    private TechStep? currentStep;
+    private string actualParamsInput = "";
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        var batches = await DataService.GetBatchesAsync();
+        currentBatch = batches.FirstOrDefault(b => b.BatchId == BatchId);
+
+        if (currentBatch != null)
+        {
+            var products = await DataService.GetProductsAsync();
+            productName = products.FirstOrDefault(p => p.ProductId == currentBatch.ProductId)?.Name ?? "—";
+
+            steps = await DataService.GetStepsByCardAsync(currentBatch.CardId);
+            executions = await DataService.GetStepExecutionsAsync(BatchId);
+
+            // текущий шаг - первый ещё не завершённый
+            currentStep = steps.FirstOrDefault(s =>
+            {
+                var ex = executions.FirstOrDefault(e => e.StepId == s.StepId);
+                return ex == null || ex.Status != "completed";
+            });
+
+            selectedStep = currentStep ?? steps.FirstOrDefault();
+        }
+
+        isLoading = false;
+    }
+
+    private void SelectStep(TechStep step)
+    {
+        selectedStep = step;
+        actualParamsInput = "";
+    }
+
+    private string GetStepIcon(BatchStepExecution? execution)
+    {
+        if (execution == null) return "○";
+        return execution.Status switch
+        {
+            "completed" => "✔",
+            "in_progress" => "▶",
+            _ => "○"
+        };
+    }
+
+    private string GetStepIconClass(BatchStepExecution? execution)
+    {
+        if (execution == null) return "icon-pending";
+        return execution.Status switch
+        {
+            "completed" => "icon-done",
+            "in_progress" => "icon-active",
+            _ => "icon-pending"
+        };
+    }
+
+    private async Task StartStep()
+    {
+        if (selectedStep == null) return;
+
+        var execution = executions.FirstOrDefault(e => e.StepId == selectedStep.StepId);
+        if (execution == null) return; // запись выполнения должна уже существовать на сервере при создании партии
+
+        var ok = await DataService.StartStepAsync(execution.ExecutionId, AuthState.UserId);
+        if (ok)
+        {
+            execution.Status = "in_progress";
+            execution.StartedAt = DateTime.Now;
+        }
+    }
+
+    private async Task CompleteStep()
+    {
+        if (selectedStep == null) return;
+
+        var execution = executions.FirstOrDefault(e => e.StepId == selectedStep.StepId);
+        if (execution == null) return;
+
+        var ok = await DataService.CompleteStepAsync(execution.ExecutionId, AuthState.UserId, actualParamsInput);
+        if (ok)
+        {
+            execution.Status = "completed";
+            execution.CompletedAt = DateTime.Now;
+            execution.ActualParams = actualParamsInput;
+            actualParamsInput = "";
+
+            // переключаемся на следующий незавершённый шаг
+            currentStep = steps.FirstOrDefault(s =>
+            {
+                var ex = executions.FirstOrDefault(e => e.StepId == s.StepId);
+                return ex == null || ex.Status != "completed";
+            });
+            selectedStep = currentStep;
+        }
+    }
+}

@@ -1,0 +1,107 @@
+﻿@page "/active-batches"
+@inject DataService DataService
+@inject NavigationManager Navigation
+@inject AuthState AuthState
+
+<h1>Активные партии</h1>
+
+<div class="filters-bar">
+    <input placeholder="Поиск по номеру" @bind="searchText" @bind:event="oninput" @bind:after="ApplyFilter" />
+    <select @bind="selectedStatus" @bind:after="ApplyFilter">
+        <option value="">Все статусы</option>
+        <option value="in_progress">В работе</option>
+        <option value="completed">Завершена</option>
+        <option value="critical">Критично</option>
+    </select>
+</div>
+
+@if (isLoading)
+{
+    <p>Загрузка...</p>
+}
+else if (!filteredBatches.Any())
+{
+    <p>Партии не найдены</p>
+}
+else
+{
+    <table class="batch-table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>№ партии</th>
+                <th>Продукт</th>
+                <th>Статус</th>
+                <th>Плановое кол-во</th>
+                <th>Факт. кол-во</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var batch in filteredBatches)
+            {
+                <tr @onclick="() => OpenBatch(batch.BatchId)">
+                    <td><span class="status-dot @GetStatusClass(batch.Status)"></span></td>
+                    <td>@batch.BatchNumber</td>
+                    <td>@GetProductName(batch.ProductId)</td>
+                    <td>@batch.Status</td>
+                    <td>@batch.PlannedQty</td>
+                    <td>@(batch.ActualQty?.ToString() ?? "—")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ProductionBatch> allBatches = new();
+    private List<ProductionBatch> filteredBatches = new();
+    private List<Product> products = new();
+    private bool isLoading = true;
+
+    private string searchText = "";
+    private string selectedStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+            return;
+        }
+        allBatches = await DataService.GetBatchesAsync();
+        products = await DataService.GetProductsAsync();
+        ApplyFilter();
+        isLoading = false;
+    }
+
+    private void ApplyFilter()
+    {
+        var query = allBatches.AsEnumerable();
+
+        if (!string.IsNullOrWhiteSpace(searchText))
+            query = query.Where(b => b.BatchNumber.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrWhiteSpace(selectedStatus))
+            query = query.Where(b => b.Status == selectedStatus);
+
+        filteredBatches = query.ToList();
+    }
+
+    private string GetProductName(int productId)
+    {
+        return products.FirstOrDefault(p => p.ProductId == productId)?.Name ?? "—";
+    }
+
+    private string GetStatusClass(string status) => status switch
+    {
+        "completed" => "status-ok",
+        "critical" => "status-critical",
+        "in_progress" => "status-warn",
+        _ => "status-ok"
+    };
+
+    private void OpenBatch(int batchId)
+    {
+        Navigation.NavigateTo($"batch-program/{batchId}");
+    }
+}
