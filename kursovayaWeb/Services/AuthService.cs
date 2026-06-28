@@ -1,5 +1,6 @@
-﻿using System.Net.Http.Json;
-using kursovayaWeb.Models;
+﻿using kursovayaWeb.Models;
+using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace kursovayaWeb.Services
 {
@@ -7,41 +8,29 @@ namespace kursovayaWeb.Services
 
     public class AuthService
     {
-        private readonly HttpClient _http;
-        private readonly AuthState _authState;
-
-        public AuthService(HttpClient http, AuthState authState)
+        private HttpClient client = new HttpClient();
+        public async Task<Responce> SignIn(SignInUser user)
         {
-            _http = http;
-            _authState = authState;
+            JsonContent content = JsonContent.Create(user);
+            using var response = await client.PostAsync("http://localhost:5043/api/Account/token", content);
+            string responseText = await response.Content.ReadAsStringAsync();
+            if (response.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                Responce resp = JsonSerializer.Deserialize<Responce>(responseText)!;
+                RegisterUser.usernsme = resp.username;
+                RegisterUser.access_token = resp.access_token;
+                return resp;
+            }
+            return null!;
         }
-
-        public async Task<(bool Success, string ErrorMessage)> LoginAsync(string login, string password)
+        public async Task<AuthState> getUser()
         {
-            try
-            {
-                var request = new LoginRequest { Login = login, Password = password };
-                var response = await _http.PostAsJsonAsync("http://localhost:5043/api/Account/token", request);
-
-                if (!response.IsSuccessStatusCode)
-                    return (false, "Неверный логин или пароль");
-
-                var result = await response.Content.ReadFromJsonAsync<LoginResponse>();
-                if (result == null)
-                    return (false, "Ошибка ответа сервера");
-
-                _authState.SetUser(result);
-
-                // После входа подставляем токен во все дальнейшие запросы этого HttpClient
-                _http.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.AccessToken);
-
-                return (true, "");
-            }
-            catch (HttpRequestException)
-            {
-                return (false, "Нет соединения с сервером");
-            }
+                client.DefaultRequestHeaders.Add("Authorization", "Bearer " + RegisterUser.access_token);
+                var response = await client.GetFromJsonAsync<AuthState>("http://localhost:5043/api/Account/info");
+                if (response != null) return response;
+            
+            return null!;
         }
     }
+
 }

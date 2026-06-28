@@ -1,4 +1,4 @@
-﻿@page "/batch-program/{BatchId:int}"
+﻿@page "/batch-program"
 @inject DataService DataService
 @inject AuthState AuthState
 @inject NavigationManager Navigation
@@ -180,7 +180,6 @@ else
             execution.ActualParams = actualParamsInput;
             actualParamsInput = "";
 
-            // переключаемся на следующий незавершённый шаг
             currentStep = steps.FirstOrDefault(s =>
             {
                 var ex = executions.FirstOrDefault(e => e.StepId == s.StepId);

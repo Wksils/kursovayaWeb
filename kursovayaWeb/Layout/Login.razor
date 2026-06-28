@@ -25,7 +25,6 @@
     private string password = "";
     private string errorMessage = "";
     private bool isLoading = false;
-
     private async void HandleKeyUp(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
@@ -43,16 +42,19 @@
         }
 
         isLoading = true;
-        var (success, error) = await AuthService.LoginAsync(login, password);
+        SignInUser user = new SignInUser();
+        user.Login = login;
+        user.Password = password;
+        Responce responce = await AuthService.SignIn(user);
         isLoading = false;
 
-        if (success)
+        if (responce != null)
         {
-            Navigation.NavigateTo("active-batches");
+            Navigation.NavigateTo("/active-batches");
         }
         else
         {
-            errorMessage = error;
+            errorMessage = "Неверный логин или пароль";
         }
     }
 }
