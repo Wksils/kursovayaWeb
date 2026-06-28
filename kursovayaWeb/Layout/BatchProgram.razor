@@ -1,4 +1,4 @@
-﻿@page "/batch-program"
+﻿@page "/batch-program/{BatchId:int}"
 @inject DataService DataService
 @inject AuthState AuthState
 @inject NavigationManager Navigation
@@ -108,8 +108,6 @@ else
 
             steps = await DataService.GetStepsByCardAsync(currentBatch.CardId);
             executions = await DataService.GetStepExecutionsAsync(BatchId);
-
-            // текущий шаг - первый ещё не завершённый
             currentStep = steps.FirstOrDefault(s =>
             {
                 var ex = executions.FirstOrDefault(e => e.StepId == s.StepId);
@@ -155,9 +153,9 @@ else
         if (selectedStep == null) return;
 
         var execution = executions.FirstOrDefault(e => e.StepId == selectedStep.StepId);
-        if (execution == null) return; // запись выполнения должна уже существовать на сервере при создании партии
+        if (execution == null) return; 
 
-        var ok = await DataService.StartStepAsync(execution.ExecutionId, AuthState.UserId);
+        var ok = await DataService.StartStepAsync(execution, AuthState.UserId);
         if (ok)
         {
             execution.Status = "in_progress";
@@ -172,7 +170,7 @@ else
         var execution = executions.FirstOrDefault(e => e.StepId == selectedStep.StepId);
         if (execution == null) return;
 
-        var ok = await DataService.CompleteStepAsync(execution.ExecutionId, AuthState.UserId, actualParamsInput);
+        var ok = await DataService.CompleteStepAsync(execution, AuthState.UserId, actualParamsInput);
         if (ok)
         {
             execution.Status = "completed";

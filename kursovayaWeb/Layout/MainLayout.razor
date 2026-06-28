@@ -7,7 +7,7 @@
 
     @if (AuthState.IsAuthenticated)
     {
-        <!-- Шапка приложения -->
+        
         <header class="app-header">
             <span class="app-logo">[ЛОГО] Система производства СЗР</span>
             <span class="app-section">Раздел: @CurrentSection</span>
@@ -17,7 +17,7 @@
         </header>
 
         <div class="app-body">
-            <!-- Левое меню -->
+            
             <nav class="app-menu">
                 <NavLink href="active-batches" Match="NavLinkMatch.All">Активные партии</NavLink>
                 <NavLink href="batch-program">Программа партии</NavLink>
@@ -26,7 +26,7 @@
                 <NavLink href="report-problem">Сообщить о проблеме</NavLink>
             </nav>
 
-            <!-- Рабочая область - сюда подставляется содержимое текущей страницы -->
+            
             <main class="app-content">
                 @Body
             </main>
@@ -34,7 +34,7 @@
     }
     else
     {
-        <!-- Если пользователь не залогинен - просто показываем страницу без шапки/меню -->
+        
         <main class="login-content">
             @Body
         </main>
@@ -47,13 +47,13 @@
 
     protected override void OnInitialized()
     {
-        // Подписываемся на смену страницы чтобы обновлять название раздела в шапке
+        
         Navigation.LocationChanged += OnLocationChanged;
         UpdateSection();
     }
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        // Вызываем в контексте потока Blazor, чтобы избежать конфликтов с @Body
+        
         InvokeAsync(() =>
         {
             UpdateSection();

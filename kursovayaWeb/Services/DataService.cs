@@ -6,31 +6,19 @@ namespace kursovayaWeb.Services
 {
 	public class DataService
 	{
-		private  HttpClient _http = new HttpClient();
+		private readonly HttpClient _http;
 
-		public DataService()
+		public DataService(HttpClient http)
 		{
-			//_http = http;
+			_http = http;
 		}
 
-		// Вспомогательный метод для автоматической подстановки токена в заголовки
-		//private void AppendAuthorizationHeader()
-		//{
-		//	if (_authState.IsAuthenticated && !string.IsNullOrEmpty(_authState.AccessToken))
-		//	{
-		//		_http.DefaultRequestHeaders.Authorization =
-		//			new AuthenticationHeaderValue("Bearer", _authState.AccessToken);
-		//	}
-
-		//}
 
 		public async Task<List<ProductionBatch>> GetBatchesAsync()
 		{
-			//AppendAuthorizationHeader();
-			// Используем относительный путь api/...
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
 			var list = await _http.GetFromJsonAsync<List<ProductionBatch>>("api/ProductionBatch");
 			if (list != null) return list;
@@ -39,10 +27,10 @@ namespace kursovayaWeb.Services
 
 		public async Task<List<Product>> GetProductsAsync()
 		{
-			//AppendAuthorizationHeader();
+			
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
 			var list = await _http.GetFromJsonAsync<List<Product>>("api/Product");
 			return list ?? new List<Product>();
@@ -50,12 +38,11 @@ namespace kursovayaWeb.Services
 
 		public async Task<List<BatchStepExecution>> GetStepExecutionsAsync(int batchId)
 		{
-			//AppendAuthorizationHeader();
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
-			var list = await _http.GetFromJsonAsync<List<BatchStepExecution>>("api/BatchStepExecution/" + batchId);
+			var list = await _http.GetFromJsonAsync<List<BatchStepExecution>>("api/BatchStepExecution");
 			return (list ?? new List<BatchStepExecution>())
 				.Where(e => e.BatchId == batchId)
 				.OrderBy(e => e.StepId)
@@ -64,10 +51,9 @@ namespace kursovayaWeb.Services
 
 		public async Task<List<TechStep>> GetStepsByCardAsync(int cardId)
 		{
-			//AppendAuthorizationHeader();
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
 			var list = await _http.GetFromJsonAsync<List<TechStep>>("api/TechStep");
 			return (list ?? new List<TechStep>())
@@ -78,10 +64,9 @@ namespace kursovayaWeb.Services
 
 		public async Task<List<ExtruderEvent>> GetExtruderEventsAsync(int executionId)
 		{
-			//AppendAuthorizationHeader();
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
 			var list = await _http.GetFromJsonAsync<List<ExtruderEvent>>("api/ExtruderEvent");
 			return (list ?? new List<ExtruderEvent>())
@@ -89,33 +74,49 @@ namespace kursovayaWeb.Services
 				.ToList();
 		}
 
-		public async Task<bool> StartStepAsync(int executionId, int userId)
+		public async Task<bool> StartStepAsync(BatchStepExecution execution, int userId)
 		{
-			//AppendAuthorizationHeader();
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
-			var payload = new { StartedAt = DateTime.Now, StartedBy = userId, Status = "in_progress" };
-			var response = await _http.PatchAsJsonAsync($"api/TechStep/{executionId}", payload);
+			var payload = new BatchStepExecution
+			{
+				ExecutionId = execution.ExecutionId,
+				BatchId = execution.BatchId,
+				StepId = execution.StepId,
+				Status = "in_progress",
+				StartedAt = DateTime.Now,
+				CompletedAt = execution.CompletedAt,
+				StartedBy = userId,
+				CompletedBy = execution.CompletedBy,
+				ActualParams = execution.ActualParams,
+				Notes = execution.Notes
+			};
+			var response = await _http.PutAsJsonAsync($"api/BatchStepExecution/{execution.ExecutionId}", payload);
 			return response.IsSuccessStatusCode;
 		}
 
-		public async Task<bool> CompleteStepAsync(int executionId, int userId, string actualParams)
+		public async Task<bool> CompleteStepAsync(BatchStepExecution execution, int userId, string actualParams)
 		{
-			//AppendAuthorizationHeader();
 			_http.DefaultRequestHeaders.Authorization =
 	new AuthenticationHeaderValue(
-		"Bearer ",
+		"Bearer",
 		RegisterUser.access_token);
-			var payload = new
+			var payload = new BatchStepExecution
 			{
-				CompletedAt = DateTime.Now,
-				CompletedBy = userId,
+				ExecutionId = execution.ExecutionId,
+				BatchId = execution.BatchId,
+				StepId = execution.StepId,
 				Status = "completed",
-				ActualParams = actualParams
+				StartedAt = execution.StartedAt,
+				CompletedAt = DateTime.Now,
+				StartedBy = execution.StartedBy,
+				CompletedBy = userId,
+				ActualParams = actualParams,
+				Notes = execution.Notes
 			};
-			var response = await _http.PatchAsJsonAsync($"api/TechStep/{executionId}", payload);
+			var response = await _http.PutAsJsonAsync($"api/BatchStepExecution/{execution.ExecutionId}", payload);
 			return response.IsSuccessStatusCode;
 		}
 	}
