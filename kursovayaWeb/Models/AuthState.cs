@@ -2,11 +2,11 @@
 {
     public class AuthState
     {
-        public bool IsAuthenticated { get; private set; } = false;
-        public string AccessToken { get; private set; } = "";
-        public int UserId { get; private set; }
-        public string FullName { get; private set; } = "";
-        public string Role { get; private set; } = "";
+        public bool IsAuthenticated { get;  set; } = false;
+        public string AccessToken { get;  set; } = "";
+        public int UserId { get;  set; }
+        public string FullName { get;  set; } = "";
+        public string Role { get;  set; } = "";
         public void SetUser(LoginResponse response)
         {
             IsAuthenticated = true;

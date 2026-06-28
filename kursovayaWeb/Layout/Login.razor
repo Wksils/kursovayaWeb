@@ -1,5 +1,6 @@
 ﻿@page "/"
 @inject AuthService AuthService
+@inject AuthState AuthState
 @inject NavigationManager Navigation
 
 <div class="login-content">
@@ -50,6 +51,7 @@
 
         if (responce != null)
         {
+            AuthState.IsAuthenticated = true;
             Navigation.NavigateTo("/active-batches");
         }
         else
